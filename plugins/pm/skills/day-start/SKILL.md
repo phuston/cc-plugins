@@ -1,6 +1,6 @@
 ---
 name: day-start
-description: Morning planning — review yesterday's tasks, carry over or drop incomplete items, add new tasks for today. Use when user says "day start", "start my day", "morning planning", or invokes /pm:day-start.
+description: Morning planning — review recent tasks, draft today's plan. Use when user says "day start", "start my day", "morning planning", "plan my day", or invokes /pm:day-start.
 ---
 
 # Day Start
@@ -10,55 +10,77 @@ You are helping the user plan their day using their Obsidian daily notes.
 ## Setup
 
 1. Read the vault config from `references/vault-config.md` for paths and conventions.
-2. Read the Daily Template from the vault: `~/projects/phuston/templates/Daily Template.md`.
-3. Determine today's date and the path for today's daily note: `~/projects/phuston/daily/YYYY-MM-DD.md`.
-4. Find the most recent prior daily note. List files in `~/projects/phuston/daily/` and find the most recent one before today's date. This is "yesterday's note" (it may not be literally yesterday if days were skipped).
-5. Read yesterday's daily note.
-6. Read this week's weekly note at `~/projects/phuston/weekly/YYYY-WXX.md` if it exists, for context on weekly intentions.
+2. Determine today's date and the path for today's daily note: `~/projects/phuston/daily/YYYY-MM-DD.md`.
+3. List files in `~/projects/phuston/daily/` and read the last 3-5 daily notes to understand recent task history.
+4. Read this week's weekly note at `~/projects/phuston/weekly/YYYY-WXX.md` if it exists.
 
-## Interview: Incomplete Tasks
+## Analyze Context
 
-Look at yesterday's note for any unchecked tasks (`- [ ]` items). For each incomplete task, present it to the user and ask:
+With the notes loaded, perform the following analysis before generating the draft:
 
-> **[Task description]**
-> - **Carry forward** as-is?
-> - **Modify** it? (scope changed, refined)
-> - **Drop** it? (no longer relevant)
-> - **Transform** it? (e.g., "explore X" becomes "write up findings from X")
+- Identify all incomplete tasks (`- [ ]`) across the recent daily notes. For each, count how many consecutive days it has been carried without being completed.
+- Cross-reference tasks with the weekly note's intentions. Note which tasks serve active weekly intentions.
+- Flag stale tasks (carried 3+ days) with a suggested action and brief reasoning in an HTML comment (e.g., `<!-- Carried 4 days, no weekly tie — drop? -->`). Place the comment inline after the task.
+- Auto-carry recent incomplete tasks (1-2 days old) without flagging them.
+- Suggest new tasks derived from weekly intentions that haven't seen meaningful progress yet.
+- Infer the category (`[admin]`, `[discrete]`, or `[exploratory]`) from context and task description patterns. If a category cannot be confidently inferred, omit it.
 
-Process tasks one at a time. Wait for the user's response before moving to the next task. If they modify or transform, ask for the updated description, category, and outcome.
+## Generate Draft
 
-## Interview: New Tasks
+Write the draft to `/tmp/pm-draft-YYYY-MM-DD-start.md` using this exact format:
 
-After processing all carry-over tasks, ask:
-
-> "Any new tasks for today?"
-
-For each new task the user mentions:
-1. Ask for the **category**: `[admin]`, `[discrete]`, or `[exploratory]`
-2. Ask for the **desired outcome** (what does done look like?)
-3. For `[exploratory]` tasks, offer to create a linked exploration note using the Exploration Note Template
-
-If the user wants an exploration note, create it at `~/projects/phuston/notes/<slug>.md` using the template, and add a `See: [[notes/<slug>]]` line to the task.
-
-Keep asking "Any more?" until the user says they're done.
-
-## Create Today's Note
-
-Create (or update if it already exists) today's daily note at `~/projects/phuston/daily/YYYY-MM-DD.md` using the Daily Template structure:
-
-- **Carry-over** section: tasks carried forward (with any modifications)
-- **New** section: new tasks added during the interview
-
-Each task should follow the format:
 ```markdown
+# Today: YYYY-MM-DD — edit and save to confirm
+# Delete tasks to drop. Add new tasks under New.
+# <!-- comments --> are Claude's suggestions — ignore or delete them.
+# Freeform notes at the bottom get incorporated.
+
+## Carry-over
 - [ ] Task description [category]
-  - Outcome: desired outcome
-  - See: [[notes/slug]]  (only for exploratory tasks with linked notes)
+  - Outcome: what success looks like
+- [ ] Stale task [category]  <!-- 4 days — drop? -->
+  - Outcome: ...
+
+## Suggested from weekly intentions
+- [ ] Task derived from intention [category]
+  - Outcome: ...
+
+## New
+- [ ]
+
+## Notes
+<!-- freeform context for Claude -->
 ```
 
-If the weekly note exists, briefly mention how today's tasks connect to weekly intentions (add a short note at the top of the Tasks section if relevant).
+Replace `YYYY-MM-DD` with today's actual date throughout. Populate Carry-over from your analysis. Populate Suggested from weekly intentions based on gaps you identified. Leave New with a blank task as a prompt for the user to add their own.
 
-## Wrap Up
+## Open in Editor
 
-Summarize the day's plan back to the user: how many carry-over tasks, how many new tasks, and a quick overview. Keep it brief.
+Run the following command to open the draft for editing. This blocks until the editor exits:
+
+```
+${EDITOR:-vim} /tmp/pm-draft-YYYY-MM-DD-start.md
+```
+
+Do not proceed until the command returns.
+
+## Process Edits
+
+Read the edited file back from `/tmp/pm-draft-YYYY-MM-DD-start.md`.
+
+If anything is genuinely ambiguous — for example, a vague new task with unclear scope — ask 1-2 targeted clarifying questions in a single message. If everything is clear, skip straight to writing.
+
+## Write Daily Note
+
+Clean up the temp file: `rm /tmp/pm-draft-YYYY-MM-DD-start.md`
+
+Write the processed content to `~/projects/phuston/daily/YYYY-MM-DD.md`. When writing:
+
+- Strip the `#` header instruction lines (the four comment lines at the top).
+- Strip all HTML comments (`<!-- ... -->`).
+- Preserve the section structure: Carry-over, Suggested from weekly intentions, New, Notes.
+- Remove any blank placeholder tasks (e.g., `- [ ]` with no description) left in New.
+
+## Summarize
+
+Give a brief 2-3 sentence recap of today's plan: what's being carried, what's new, and how it connects to weekly intentions if relevant.

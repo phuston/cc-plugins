@@ -1,65 +1,79 @@
 ---
 name: day-end
-description: End-of-day wrap-up — review task completion, log activity, capture reflections. Use when user says "day end", "end my day", "wrap up", or invokes /pm:day-end.
+description: End-of-day wrap-up — review tasks, log activity, capture reflections. Use when user says "day end", "end my day", "wrap up", "how'd today go", or invokes /pm:day-end.
 ---
 
 # Day End
 
-You are helping the user wrap up their day by reviewing tasks, logging activity, and capturing reflections.
+You are helping the user wrap up their day. Do the thinking up front — auto-detect completions from git, pre-fill activity, and present a draft for the user to edit rather than asking questions.
 
-## Setup
+## 1. Setup
 
-1. Read the vault config from `references/vault-config.md` for paths and conventions.
-2. Determine today's date and read today's daily note at `~/projects/phuston/daily/YYYY-MM-DD.md`.
-3. If today's note doesn't exist, let the user know and offer to run day-start first.
+1. Read vault config from `references/vault-config.md` for paths and conventions.
+2. Determine today's date (YYYY-MM-DD).
+3. Read today's daily note at `~/projects/phuston/daily/YYYY-MM-DD.md`.
+4. If today's note doesn't exist, tell the user and offer two options:
+   - Run day-start first to create a proper note
+   - Create a minimal note now and continue
 
-## Interview: Task Review
+## 2. Gather Activity
 
-Go through each task in today's note one at a time:
-
-For **unchecked tasks** (`- [ ]`):
-> **[Task description]**
-> - **Completed?** (mark it done)
-> - **In progress?** (add a status note, will carry over tomorrow)
-> - **Drop?** (no longer relevant)
-> - **Transform?** (evolved into something else)
-
-If completed, mark it `[x]`. If in progress, ask for a brief status note to append. If transformed, ask for the new description.
-
-For **already checked tasks** (`- [x]`), just confirm and move on.
-
-## Activity Log
-
-Run a command to find files modified today in the vault:
+Run both commands to collect today's activity:
 
 ```bash
-find ~/projects/phuston/ -name "*.md" -newer ~/projects/phuston/daily/YYYY-MM-DD.md -o -name "*.md" -newermt "YYYY-MM-DD" | sort
+cd ~/projects/phuston && git log --oneline --since="YYYY-MM-DD" --until="YYYY-MM-DD + 1 day" --stat
 ```
-
-Also check `git log` in the vault for today's commits:
 
 ```bash
-cd ~/projects/phuston && git log --oneline --since="YYYY-MM-DD" --until="YYYY-MM-DD + 1 day"
+find ~/projects/phuston/ -name "*.md" -newermt "YYYY-MM-DD" | sort
 ```
 
-Append the results under the `## Activity` section in today's note. Format as a simple list of files modified/created. Keep it concise — just the file paths relative to the vault root.
+## 3. Analyze and Generate Draft
 
-## Interview: Reflections
+Before writing the draft, do the following analysis:
 
-Ask the user two questions, one at a time:
+- **Auto-detect completions**: Cross-reference git commit messages and changed files against each task description. If a task looks done based on the evidence (e.g., a PR was merged, a file the task references was modified, a commit message matches the task), pre-check it (`[x]`) and add an HTML comment explaining the evidence (e.g., `<!-- PR #142 merged -->`, `<!-- commit: "feat: add X" -->`).
+- **Pre-fill Activity**: Summarize git commits (message + branch/files touched) and any notable file modifications as a list.
+- **Incomplete tasks**: Leave unchecked and add a blank `- Status:` line for the user to fill in.
+- **Reflections**: Leave the section open with an HTML comment prompt.
 
-1. > "What went well today?"
-2. > "What was hard or didn't go as planned?"
+Write the draft to `/tmp/pm-draft-YYYY-MM-DD-end.md` using this format:
 
-Append their responses under the `## Reflections` section in today's note. Keep the user's voice — lightly edit for clarity but don't rewrite.
+```markdown
+# End of day: YYYY-MM-DD — edit and save to confirm
 
-## Update Today's Note
+## Tasks
+- [x] Completed task [category]  <!-- PR #142 merged -->
+  - Outcome: what success looked like
+- [ ] Incomplete task [category]
+  - Outcome: what success looks like
+  - Status:
 
-Write all changes back to today's daily note:
-- Updated task checkboxes and status notes
-- Activity log
-- Reflections
+## Activity
+- Merged PR #142 (description)
+- 3 commits to feature/branch
+- Modified: notes/some-note.md
 
-## Wrap Up
+## Reflections
+<!-- what went well, what was hard, anything on your mind -->
+```
 
-Give a brief summary: tasks completed vs. remaining, and a short encouraging note. Keep it to 1-2 sentences.
+Then open it in the user's editor:
+
+```bash
+${EDITOR:-vim} /tmp/pm-draft-YYYY-MM-DD-end.md
+```
+
+## 4. Process Edits
+
+Read the edited file back. Clarify only if something is genuinely ambiguous — don't ask questions that can be reasonably inferred from context.
+
+## 5. Write Daily Note
+
+Clean up the temp file: `rm /tmp/pm-draft-YYYY-MM-DD-end.md`
+
+Update `~/projects/phuston/daily/YYYY-MM-DD.md` with the final content. Strip the header instruction line (`# End of day: ... — edit and save to confirm`) and all HTML comments before writing.
+
+## 6. Brief Closing
+
+1-2 sentences highlighting what got done today. Be direct — no filler phrases.
