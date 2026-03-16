@@ -1,8 +1,7 @@
 {
   "name": "phuston-plugins",
   "owner": {
-    "name": "Patrick Huston",
-    "email": "patrickhuston4@gmail.com"
+    "name": "phuston"
   },
   "metadata": {
     "description": "Personal Claude Code plugins",
