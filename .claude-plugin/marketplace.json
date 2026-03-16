@@ -1,0 +1,18 @@
+{
+  "name": "phuston-plugins",
+  "owner": {
+    "name": "Patrick Huston",
+    "email": "patrickhuston4@gmail.com"
+  },
+  "metadata": {
+    "description": "Personal Claude Code plugins",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "pm",
+      "source": "./plugins/pm",
+      "description": "Personal task management skills for Obsidian daily/weekly notes"
+    }
+  ]
+}
